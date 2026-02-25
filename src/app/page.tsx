@@ -1,27 +1,66 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import GeneratorForm from "@/components/GeneratorForm";
 import ColoringPagePreview from "@/components/ColoringPagePreview";
+import PasscodeModal from "@/components/PasscodeModal";
 import { useGenerate } from "@/hooks/useGenerate";
 import { useGallery } from "@/hooks/useGallery";
+import { useRateLimit } from "@/hooks/useRateLimit";
 
 export default function HomePage() {
   const { imageData, generatedPrompt, loading, error, generate, reset } =
     useGenerate();
   const { addPage } = useGallery();
+  const { remaining, canGenerate, unlocked, recordGeneration, verifyPasscode } =
+    useRateLimit();
   const descriptionRef = useRef("");
+  const [showPasscode, setShowPasscode] = useState(false);
+  const [pendingDescription, setPendingDescription] = useState<string | null>(
+    null
+  );
 
-  const handleGenerate = useCallback(
+  const doGenerate = useCallback(
     async (description: string) => {
       descriptionRef.current = description;
+      recordGeneration();
       const result = await generate(description);
       if (result) {
         await addPage(description, result);
       }
     },
-    [generate, addPage]
+    [generate, addPage, recordGeneration]
+  );
+
+  const handleGenerate = useCallback(
+    async (description: string) => {
+      if (!canGenerate) {
+        setPendingDescription(description);
+        setShowPasscode(true);
+        return;
+      }
+      await doGenerate(description);
+    },
+    [canGenerate, doGenerate]
+  );
+
+  const handlePasscodeClose = useCallback(() => {
+    setShowPasscode(false);
+    setPendingDescription(null);
+  }, []);
+
+  const handlePasscodeVerify = useCallback(
+    (code: string): boolean => {
+      const ok = verifyPasscode(code);
+      if (ok && pendingDescription) {
+        setShowPasscode(false);
+        doGenerate(pendingDescription);
+        setPendingDescription(null);
+      }
+      return ok;
+    },
+    [verifyPasscode, pendingDescription, doGenerate]
   );
 
   return (
@@ -35,6 +74,20 @@ export default function HomePage() {
           printable coloring page just for you.
         </p>
       </div>
+
+      {!imageData && !loading && (
+        <div className="text-center mb-4">
+          {unlocked ? (
+            <span className="inline-block text-xs font-medium text-violet-700 bg-violet-50 px-3 py-1 rounded-full">
+              Unlimited access
+            </span>
+          ) : (
+            <span className="inline-block text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+              {remaining} of 3 free generations remaining today
+            </span>
+          )}
+        </div>
+      )}
 
       {!imageData && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
@@ -74,6 +127,13 @@ export default function HomePage() {
             onReset={reset}
           />
         </div>
+      )}
+
+      {showPasscode && (
+        <PasscodeModal
+          onVerify={handlePasscodeVerify}
+          onClose={handlePasscodeClose}
+        />
       )}
     </div>
   );
