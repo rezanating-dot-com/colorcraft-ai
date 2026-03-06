@@ -13,7 +13,7 @@ export default function HomePage() {
   const { imageData, generatedPrompt, loading, error, generate, reset } =
     useGenerate();
   const { addPage } = useGallery();
-  const { remaining, canGenerate, unlocked, recordGeneration, verifyPasscode } =
+  const { remaining, needsPasscode, recordGeneration, verifyPasscode } =
     useRateLimit();
   const descriptionRef = useRef("");
   const [showPasscode, setShowPasscode] = useState(false);
@@ -35,14 +35,14 @@ export default function HomePage() {
 
   const handleGenerate = useCallback(
     async (description: string) => {
-      if (!canGenerate) {
+      if (needsPasscode) {
         setPendingDescription(description);
         setShowPasscode(true);
         return;
       }
       await doGenerate(description);
     },
-    [canGenerate, doGenerate]
+    [needsPasscode, doGenerate]
   );
 
   const handlePasscodeClose = useCallback(() => {
@@ -77,15 +77,11 @@ export default function HomePage() {
 
       {!imageData && !loading && (
         <div className="text-center mb-4">
-          {unlocked ? (
-            <span className="inline-block text-xs font-medium text-violet-700 bg-violet-50 px-3 py-1 rounded-full">
-              Unlimited access
-            </span>
-          ) : (
-            <span className="inline-block text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              {remaining} of 3 free generations remaining today
-            </span>
-          )}
+          <span className="inline-block text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            {remaining > 0
+              ? `${remaining} of 3 free generations remaining today`
+              : "Free generations used — passcode required"}
+          </span>
         </div>
       )}
 

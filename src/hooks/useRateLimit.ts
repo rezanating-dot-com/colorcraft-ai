@@ -36,14 +36,13 @@ function saveRecord(record: DailyRecord) {
 
 export function useRateLimit() {
   const [remaining, setRemaining] = useState(DAILY_LIMIT);
-  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     const record = getRecord();
     setRemaining(Math.max(0, DAILY_LIMIT - record.count));
   }, []);
 
-  const canGenerate = unlocked || remaining > 0;
+  const needsPasscode = remaining <= 0;
 
   const recordGeneration = useCallback(() => {
     const record = getRecord();
@@ -53,12 +52,8 @@ export function useRateLimit() {
   }, []);
 
   const verifyPasscode = useCallback((code: string): boolean => {
-    if (code === PASSCODE) {
-      setUnlocked(true);
-      return true;
-    }
-    return false;
+    return code === PASSCODE;
   }, []);
 
-  return { remaining, canGenerate, unlocked, recordGeneration, verifyPasscode };
+  return { remaining, needsPasscode, recordGeneration, verifyPasscode };
 }
